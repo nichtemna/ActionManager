@@ -1,0 +1,119 @@
+package com.getperx.perx.card.details.action;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.CountDownTimer;
+import android.support.v4.app.Fragment;
+import android.view.View;
+import android.view.animation.TranslateAnimation;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+
+import com.getperx.perx.Extras;
+import com.getperx.perx.R;
+import com.getperx.perx.card.details.CardDetailsActivity;
+import com.getperx.perx.card.details.ChopDetailsFragment;
+import com.getperx.perx.utils.action.MyAction;
+
+public class ShowPanelChopDetailsAction extends MyAction {
+
+    private static final int TIMER_DAYS_PANEL = 1;
+    private static final int TIMER_HOURS_PANEL = 2;
+    private static final int REWARDS_LEFT_PANEL = 3;
+    private static final int SECONDSINDAY = 86400;
+    private static final int SECONDSINTWODAYS = 172800;
+    private static final String TAG = ShowPanelChopDetailsAction.class.getName();
+
+    private ChopDetailsFragment chopDetailsFragment;
+    private ChopDetailsCountDownTimer countDownTimer;
+    private long exp_seconds;
+    private int rewards_remaining;
+
+    private RelativeLayout layout_panel;
+    private TextView hoursTV, minutesTV, secondsTV;
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        exp_seconds = intent.getLongExtra(Extras.EXP_SECONDS, -1);
+        rewards_remaining = intent.getIntExtra(Extras.REWARDS_REMAINING, -1);
+        if (rewards_remaining < 100 && rewards_remaining > 0) {
+            showPanel(REWARDS_LEFT_PANEL);
+        }
+        if (exp_seconds < SECONDSINTWODAYS && exp_seconds >= SECONDSINDAY) {
+            showPanel(TIMER_DAYS_PANEL);
+        } else if (exp_seconds < SECONDSINDAY)
+            showPanel(TIMER_HOURS_PANEL);
+    }
+
+    @Override
+    protected void onRegistrate(Activity activity, Fragment fragment) {
+        super.onRegistrate(activity, fragment);
+        chopDetailsFragment = (ChopDetailsFragment) fragment;
+    }
+
+    private void showPanel(int panel_code) {
+
+
+        View view = chopDetailsFragment.getView();
+        switch (panel_code) {
+            case REWARDS_LEFT_PANEL:
+                layout_panel = (RelativeLayout) view.findViewById(R.id.rewards_left_panel);
+                TextView rewards_left = (TextView) view.findViewById(R.id.rewards_left_count);
+                rewards_left.setText(String.valueOf(rewards_remaining));
+                break;
+            case TIMER_DAYS_PANEL:
+                layout_panel = (RelativeLayout) view.findViewById(R.id.timer_days_panel);
+                TextView days_left = (TextView) view.findViewById(R.id.days_left);
+                days_left.setText(String.valueOf(exp_seconds / SECONDSINDAY));
+                break;
+            case TIMER_HOURS_PANEL:
+                layout_panel = (RelativeLayout) view.findViewById(R.id.timer_hours_panel);
+                hoursTV = (TextView) view.findViewById(R.id.chop_details_hours);
+                minutesTV = (TextView) view.findViewById(R.id.chop_details_minutes);
+                secondsTV = (TextView) view.findViewById(R.id.chop_details_seconds);
+                countDownTimer = new ChopDetailsCountDownTimer(exp_seconds * 1000, 1000);
+                countDownTimer.start();
+                break;
+        }
+
+        layout_panel.setVisibility(View.VISIBLE);
+        TranslateAnimation slide = new TranslateAnimation(-500, 0, 0, 0);
+        slide.setDuration(500);
+        slide.setFillAfter(true);
+        layout_panel.startAnimation(slide);
+    }
+
+    class ChopDetailsCountDownTimer extends CountDownTimer {
+        int hours;
+        int minutes;
+        int seconds;
+
+        public ChopDetailsCountDownTimer(long millisInFuture, long countDownInterval) {
+            super(millisInFuture, countDownInterval);
+        }
+
+        @Override
+        public void onFinish() {
+            secondsTV.setText("0");
+        }
+
+        @Override
+        public void onTick(long time) {
+            hours = (int) (time / 3600000);
+            minutes = (int) ((time - hours * 3600000) / 60000);
+            seconds = (int) ((time - (hours * 3600000) - (minutes * 60000)) / 1000);
+            hoursTV.setText(Integer.toString(hours));
+            minutesTV.setText(Integer.toString(minutes));
+            secondsTV.setText(Integer.toString(seconds));
+        }
+    };
+
+    @Override
+    protected IntentFilter init() {
+        IntentFilter intentFilter = new IntentFilter(
+                        CardDetailsActivity.SHOW_PANEL_CHOP_DETAILS_FRAGMENT);
+        return intentFilter;
+    }
+}
