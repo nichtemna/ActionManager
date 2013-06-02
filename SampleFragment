@@ -1,0 +1,145 @@
+package com.getperx.perx.card.details;
+
+import java.text.NumberFormat;
+import java.util.List;
+
+import android.database.Cursor;
+import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.LoaderManager.LoaderCallbacks;
+import android.support.v4.content.Loader;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.widget.GridView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+
+import com.getperx.perx.Extras;
+import com.getperx.perx.R;
+import com.getperx.perx.card.details.DataProvider.Callback;
+import com.getperx.perx.card.details.action.ShowPanelChopDetailsAction;
+import com.getperx.perx.database.entities.Cards;
+import com.getperx.perx.model.Card;
+import com.getperx.perx.model.Tier;
+import com.getperx.perx.model.UserCardDetails;
+import com.getperx.perx.utils.ArrayFragmentPagerAdapter.PageSelector;
+import com.getperx.perx.utils.action.ActionManager;
+import com.getperx.perx.view.widget.TiersListView;
+
+public class ChopDetailsFragment extends Fragment implements PageFragment {
+
+    public static final int TITLE = R.string.chops;
+
+    static final NumberFormat numberFormat = NumberFormat.getIntegerInstance();
+
+    private static final int REWARDS_LOADER_ID = 0;
+    private static final int CARD_LOADER_ID = 1;
+
+    private static final String TOTAL_CHOPS_UNDEFINED = "--";
+
+    static {
+        numberFormat.setMinimumIntegerDigits(2);
+    };
+
+    private TextView totalChopsView;
+    private ProgressBar progressBar;
+    private View rootView;
+    private TiersListView tiersView;
+    private ShowPanelChopDetailsAction showPanelAction;
+    private ChopsAdapter chopsAdapter;
+
+    public static ChopDetailsFragment newInstance(long _id, long vendorId) {
+        final ChopDetailsFragment fragment = new ChopDetailsFragment();
+        final Bundle args = new Bundle();
+        args.putLong(Extras.ID, _id);
+        args.putLong(Extras.VENDOR_ID, vendorId);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        showPanelAction = new ShowPanelChopDetailsAction();
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        rootView = inflater.inflate(R.layout.chop_details, null);
+        tiersView = (TiersListView) rootView.findViewById(android.R.id.list);
+        return rootView;
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        // getListView().setDivider(new ColorDrawable(0x0000));
+        // getListView().setDividerHeight(2);
+        totalChopsView = (TextView) view.findViewById(R.id.total_chops);
+        progressBar = (ProgressBar) view.findViewById(R.id.progressBar1);
+        chopsAdapter = new ChopsAdapter(getActivity());
+
+        final DataProvider provider = (DataProvider) getActivity();
+        provider.requestUserCardDetails(new UserCardDetailsHandler());
+
+        getLoaderManager().initLoader(REWARDS_LOADER_ID, getArguments(),
+                        new RewardsLoaderCallbacks());
+        getLoaderManager().initLoader(CARD_LOADER_ID, null, new CardLoaderCallbackImpl());
+    }
+
+    private class UserCardDetailsHandler implements Callback<UserCardDetails> {
+
+        @Override
+        public void onReady(UserCardDetails result) {
+            final int totalChops = result.getTotal_punches();
+            // set total chops
+            totalChopsView.setVisibility(View.VISIBLE);
+            totalChopsView.setText(numberFormat.format(totalChops));
+            progressBar.setVisibility(View.GONE);
+            tiersView.setTotalChops(totalChops);
+            chopsAdapter.setTotalChops(totalChops);
+        }
+
+        @Override
+        public boolean isAlive() {
+            return isVisible();
+        }
+
+        @Override
+        public void onFail(Exception e) {
+            totalChopsView.setVisibility(View.VISIBLE);
+            totalChopsView.setText(TOTAL_CHOPS_UNDEFINED);
+            progressBar.setVisibility(View.GONE);
+        }
+    }
+
+    @Override
+    public Integer getTabTextId() {
+        return TITLE;
+    }
+
+    @Override
+    public Fragment get() {
+        return this;
+    }
+
+   
+
+  
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        ActionManager.registrateAction(getActivity(), this, showPanelAction);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        ActionManager.unregistrateAction(getActivity(), showPanelAction);
+    }
+}
